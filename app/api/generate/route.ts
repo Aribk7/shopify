@@ -90,7 +90,7 @@ Generate a complete script that is approximately ${targetDurationMinutes.toFixed
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'grok-4-fast-reasoning',
+        model: 'grok-2-1212',
         messages: [
           {
             role: 'system',

@@ -32,11 +32,11 @@ export async function POST(request: NextRequest) {
     // Load reference scripts from the scripts directory
     const scripts = loadScripts()
     const referenceScripts = formatScriptsForContext(scripts, 40000) // Reduced to leave room for search results
-    
+
     // Search Reddit and Amazon for real user reviews and discussions
     const searchResults = await searchRedditAndAmazon(productName, brandName)
     let searchContext = ''
-    
+
     if (searchResults.length > 0) {
       searchContext = `\n\n=== REAL USER REVIEWS AND DISCUSSIONS (Reddit & Amazon) ===\n\n`
       searchResults.forEach((result, index) => {
@@ -69,11 +69,11 @@ ${searchResults.length > 0 ? 'The real user reviews above show actual problems a
 Use these scripts as inspiration and reference for creating NEW angles for a NEW product. Do NOT extract angles from these scripts - instead, create fresh, creative angles that follow the successful patterns and frameworks you see in these examples.`
 
     const aggressivenessLevel = aggressiveness || 5
-    
+
     // Determine number of angles and tone based on aggressiveness
     let numAngles = 7 // default
     let angleTone = ''
-    
+
     if (aggressivenessLevel <= 3) {
       numAngles = 5
       angleTone = 'Focus on subtle, educational, and informative angles that gently persuade without being pushy.'
@@ -150,7 +150,7 @@ Only return the JSON array, no other text.`
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'grok-4-fast-reasoning',
+        model: 'grok-2-1212',
         messages: [
           {
             role: 'system',
@@ -179,7 +179,7 @@ Only return the JSON array, no other text.`
     const responseText = data.choices?.[0]?.message?.content || '[]'
 
     // Parse JSON response
-    let angles: Array<{angle: string, likelihood: number}> = []
+    let angles: Array<{ angle: string, likelihood: number }> = []
     try {
       // Try to extract JSON from the response (in case there's extra text)
       const jsonMatch = responseText.match(/\[[\s\S]*\]/)
