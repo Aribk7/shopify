@@ -76,7 +76,7 @@ Generate a complete variation following the exact format of the reference script
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'grok-2-1212',
+        model: 'grok-4-fast-reasoning',
         messages: [
           {
             role: 'system',

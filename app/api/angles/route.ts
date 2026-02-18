@@ -150,7 +150,7 @@ Only return the JSON array, no other text.`
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'grok-2-1212',
+        model: 'grok-4-fast-reasoning',
         messages: [
           {
             role: 'system',
