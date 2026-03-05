@@ -3,7 +3,7 @@ import { loadScripts, formatScriptsForContext } from '@/lib/loadScripts'
 
 export async function POST(request: NextRequest) {
   try {
-    const { script, videoLength, aggressiveness } = await request.json()
+    const { script, videoLength, aggressiveness, brandContext } = await request.json()
 
     if (!script) {
       return NextResponse.json(
@@ -25,6 +25,11 @@ export async function POST(request: NextRequest) {
     const scripts = loadScripts()
     const referenceScripts = formatScriptsForContext(scripts, 40000)
 
+    // Handle uploaded brand context
+    const brandContextSection = brandContext?.trim()
+      ? `\n\n=== BRAND CONTEXT ===\nPlease use the following information about the brand/product to inform your writing and ensure factual accuracy:\n\n${brandContext}\n\n=====================\n`
+      : ''
+
     // Calculate target duration in seconds
     const targetDurationSeconds = (videoLength || 2.0) * 60
     const targetDurationMinutes = videoLength || 2.0
@@ -44,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     // Build system prompt with reference scripts
     const systemPrompt = `You are a professional script writer specializing in supplement marketing scripts. You create variations of existing scripts while maintaining the same style and format.
-
+${brandContextSection}
 ${referenceScripts}
 
 CRITICAL FORMATTING REQUIREMENTS:

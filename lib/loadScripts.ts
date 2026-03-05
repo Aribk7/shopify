@@ -7,12 +7,13 @@ export interface Script {
 }
 
 /**
- * Loads all script files from the scripts directory
+ * Loads all script files from the scripts directory or a subdirectory
+ * @param subDir Optional subdirectory inside scripts/ to load from
  * @returns Array of script objects with filename and content
  */
-export function loadScripts(): Script[] {
-  const scriptsDir = path.join(process.cwd(), 'scripts')
-  
+export function loadScripts(subDir: string = ''): Script[] {
+  const scriptsDir = path.join(process.cwd(), 'scripts', subDir)
+
   // Check if scripts directory exists
   if (!fs.existsSync(scriptsDir)) {
     return []
@@ -31,7 +32,7 @@ export function loadScripts(): Script[] {
     // Only process files (not directories) and ignore hidden files
     if (stat.isFile() && !file.startsWith('.')) {
       const ext = path.extname(file).toLowerCase()
-      
+
       // Load all files, or filter by extension if needed
       try {
         const content = fs.readFileSync(filePath, 'utf-8')
@@ -64,7 +65,7 @@ export function formatScriptsForContext(scripts: Script[], maxLength: number = 5
 
   for (const script of scripts) {
     const scriptSection = `--- Script: ${script.filename} ---\n${script.content}\n\n`
-    
+
     // Check if adding this script would exceed max length
     if (totalLength + scriptSection.length > maxLength) {
       const remaining = maxLength - totalLength

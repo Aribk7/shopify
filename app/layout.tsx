@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   description: 'Generate scripts using xAI API',
 }
 
+import { BrandProvider } from '@/context/BrandContext'
+
 export default function RootLayout({
   children,
 }: {
@@ -13,7 +15,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <BrandProvider>
+          {children}
+        </BrandProvider>
+      </body>
     </html>
   )
 }

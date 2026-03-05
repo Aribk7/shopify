@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { loadScripts, formatScriptsForContext } from '@/lib/loadScripts'
 import { searchRedditAndAmazon } from '@/lib/webSearch'
+import { generateEmbedding } from '@/lib/embeddings'
+import { queryVectorStore } from '@/lib/pinecone'
 
 export async function POST(request: NextRequest) {
   try {
-    const { brandName, productName, aggressiveness } = await request.json()
+    const { brandName, productName, aggressiveness, isStatic, brandContext, isResiliaMode } = await request.json()
 
     if (!brandName) {
       return NextResponse.json(
@@ -29,9 +31,43 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Load reference scripts from the scripts directory
-    const scripts = loadScripts()
-    const referenceScripts = formatScriptsForContext(scripts, 40000) // Reduced to leave room for search results
+    // 1. Get embedding for the current request (brand + product)
+    let ragContext = ''
+    try {
+      const queryText = `${brandName} ${productName}`
+      const queryEmbedding = await generateEmbedding(queryText)
+
+      // If Resilia mode is active, filter for Resilia-specific vectors
+      const filter = isResiliaMode ? { brand: 'resilia' } : undefined
+      const relevantChunks = await queryVectorStore(queryEmbedding, isResiliaMode ? 5 : 3, filter)
+
+      if (relevantChunks.length > 0) {
+        ragContext = `\n\n=== RELEVANT PROVEN AD SNIPPETS ===\n\n${relevantChunks.join('\n\n---\n\n')}\n\n`
+      }
+    } catch (error) {
+      console.error('Error fetching RAG context for angles:', error)
+    }
+
+    // Load reference scripts from the scripts directory (default to video if not static)
+    const subDir = isStatic ? 'static-ads' : 'video-scripts'
+    const scripts = loadScripts(subDir)
+    const referenceScripts = formatScriptsForContext(scripts, 30000)
+
+    // Handle uploaded brand context
+    const brandContextSection = brandContext?.trim()
+      ? `\n\n=== BRAND CONTEXT ===\nPlease use the following information about the brand/product to inform your marketing angles and ensure factual accuracy:\n\n${brandContext}\n\n=====================\n`
+      : ''
+
+    const resiliaPersona = isResiliaMode
+      ? `\n\n=== RESILIA SPECIALIZED STRATEGIC KNOWLEDGE ===
+You are currently in RESILIA MODE. You have deep technical knowledge of the Resilia brand, its specific health benefits, scientific backing, and customer journey. 
+Refer to the Resilia Strategic Thinking Guide for guidance on:
+- Awareness levels (Unaware to Most Aware)
+- Market pockets (Weight Loss, Hormonal, Kidney, etc.)
+- Unique Mechanisms (Biofilm penetration, etc.)
+- Tone & Voice guidelines
+Ensure every angle is grounded in these strategic principles.\n`
+      : ''
 
     // Search Reddit and Amazon for real user reviews and discussions
     const searchResults = await searchRedditAndAmazon(productName, brandName)
@@ -53,20 +89,21 @@ export async function POST(request: NextRequest) {
 
     // Build system prompt
     const systemPrompt = `You are an expert marketing analyst specializing in supplement advertising. You create compelling marketing angles for new supplement products.
+${resiliaPersona}
 
+${brandContextSection}
+${ragContext}
 ${referenceScripts}
 
 ${searchContext}
 
-These reference scripts are examples of EXCELLENT supplement marketing scripts with proven effective angles. Study them to understand:
+These reference scripts and proven ad snippets are examples of EXCELLENT marketing content with proven effective angles. Study them to understand:
 - What types of problem/condition combinations work well
 - How successful scripts frame problems and solutions
 - What story structures and hooks are most effective
 - How supplements are positioned to solve problems
 
-${searchResults.length > 0 ? 'The real user reviews above show actual problems and language used by real customers. Use these insights to create angles that resonate with real user experiences.' : ''}
-
-Use these scripts as inspiration and reference for creating NEW angles for a NEW product. Do NOT extract angles from these scripts - instead, create fresh, creative angles that follow the successful patterns and frameworks you see in these examples.`
+Use these as inspiration and reference for creating NEW angles for a NEW product. Do NOT extract angles from these scripts - instead, create fresh, creative angles that follow the successful patterns and frameworks you see in these examples.`
 
     const aggressivenessLevel = aggressiveness || 5
 

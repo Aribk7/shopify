@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { loadScripts, formatScriptsForContext } from '@/lib/loadScripts'
+import { generateEmbedding } from '@/lib/embeddings'
+import { queryVectorStore } from '@/lib/pinecone'
 
 export async function POST(request: NextRequest) {
   try {
-    const { brandName, benefit, angle, videoLength, aggressiveness } = await request.json()
+    const {
+      brandName, benefit, angle,
+      videoLength, aggressiveness,
+      isStatic, brandContext,
+      isResiliaMode
+    } = await request.json()
 
     if (!brandName) {
       return NextResponse.json(
@@ -35,25 +42,70 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 1. Get embedding for the current request (benefit + angle)
+    let ragContext = ''
+    try {
+      const queryText = `${benefit} ${angle}`
+      const queryEmbedding = await generateEmbedding(queryText)
+
+      // If Resilia mode is active, filter for Resilia-specific vectors
+      const filter = isResiliaMode ? { brand: 'resilia' } : undefined
+      const relevantChunks = await queryVectorStore(queryEmbedding, isResiliaMode ? 5 : 3, filter)
+
+      if (relevantChunks.length > 0) {
+        ragContext = `\n\n=== RELEVANT SCRIPT SNIPPETS ===\n\n${relevantChunks.join('\n\n---\n\n')}\n\n`
+      }
+    } catch (error) {
+      console.error('Error fetching RAG context:', error)
+      // Fallback: will just use the standard reference scripts
+    }
+
     // Load reference scripts from the scripts directory
-    const scripts = loadScripts()
-    const referenceScripts = formatScriptsForContext(scripts, 40000) // Limit to ~40k chars to leave room for response
+    const subDir = isStatic ? 'static-ads' : 'video-scripts'
+    const scripts = loadScripts(subDir)
+    const referenceScripts = formatScriptsForContext(scripts, 20000) // Reduced to fit RAG context
 
-    // Build system prompt with reference scripts
-    const systemPrompt = `You are a professional script writer specializing in supplement marketing scripts. You write engaging, compelling scripts in the exact style and format of the reference scripts provided.
+    // Handle uploaded brand context
+    const brandContextSection = brandContext?.trim()
+      ? `\n\n=== BRAND CONTEXT ===\nPlease use the following information about the brand/product to inform your writing and ensure factual accuracy:\n\n${brandContext}\n\n=====================\n`
+      : ''
 
-${referenceScripts}
+    const resiliaPersona = isResiliaMode
+      ? `\n\n=== RESILIA SPECIALIZED KNOWLEDGE ===
+You are currently in RESILIA MODE. You have deep technical knowledge of the Resilia brand, its specific health benefits, scientific backing, and customer journey. 
+Ensure every claim is backed by the Resilia brand context provided. Use the exact tone of voice found in the Resilia reference materials.\n`
+      : ''
 
-CRITICAL FORMATTING REQUIREMENTS:
+    // Build system prompt with reference scripts and RAG context
+    const baseRole = isStatic
+      ? "You are a professional copywriter specializing in high-converting long-form static ad copy for Facebook and IG. You write deep-dive, narrative-driven ads that feel authentic and non-commercial."
+      : "You are a professional script writer specializing in supplement marketing scripts for video. You write engaging, compelling scripts in the exact style and format of the reference scripts provided."
+
+    const formattingReqs = isStatic
+      ? `CRITICAL FORMATTING REQUIREMENTS:
+- Write in a long-form, narrative style (paragraphs)
+- Do NOT use timestamps
+- Use compelling headlines and body copy
+- maintain an authentic, conversational voice`
+      : `CRITICAL FORMATTING REQUIREMENTS:
 - Every line must follow the format: "timestamp: content"
 - Timestamps must be in the format "00:00-00:04" (start time-end time)
-- Use realistic timestamps that progress naturally (e.g., 00:00-00:04, 00:04-00:08, 00:08-00:12)
-- Each timestamp should represent approximately 2-5 seconds of spoken content
-- Write in a conversational, authentic voice matching the reference scripts
+- Use realistic timestamps that progress naturally
+- Each timestamp should represent approximately 2-5 seconds of spoken content`
+
+    const systemPrompt = `${baseRole}
+${resiliaPersona}
+
+${brandContextSection}
+${ragContext}
+${referenceScripts}
+
+${formattingReqs}
+- Write in a conversational, authentic voice matching the reference materials
 - Include emotional hooks, personal stories, and compelling narratives
 - End with a strong call-to-action mentioning the brand name
 
-When generating scripts, match the style, tone, structure, and formatting of the reference scripts exactly.`
+When generating, match the style, tone, structure, and formatting of the reference materials exactly. Use the RELEVANT SNIPPETS provided above to inform the story and language for this specific product.`
 
     // Calculate target duration in seconds
     const targetDurationSeconds = (videoLength || 2.0) * 60
@@ -72,8 +124,29 @@ When generating scripts, match the style, tone, structure, and formatting of the
       aggressivenessDesc = 'very aggressive with intense urgency, strong fear/appeal triggers, and hard-hitting calls-to-action'
     }
 
-    // Build user prompt with brand details
-    const userPrompt = `Create a marketing script for a supplement brand with the following details:
+    // Build user prompt — different for static LFS vs video scripts
+    const userPrompt = isStatic
+      ? `Your job is to write a new Long Form Static (LFS) ad about this product:
+
+Brand: ${brandName}
+Product/Benefit: ${benefit}
+Angle: ${angle}
+Aggressiveness: ${aggressivenessLevel}/10 — tone should be ${aggressivenessDesc}.
+
+The examples provided above are real, winning LFS ads. Study their structure, voice, pacing, and persuasion style — then write a brand new LFS for this product in the EXACT SAME FORMAT:
+
+FORMAT RULES (follow precisely):
+- EVERY single line — even one-sentence lines — must be followed by a blank line
+- Each line is typically 1 sentence. Never more than 2 sentences on the same line.
+- Put a blank line after EVERY line. The entire document is double-spaced, line by line.
+- Use **bold** around the product name and key ingredient names
+- Use --- on its own line between major sections
+- End with 👉 [CTA link], then a blank line, then ---
+- No timestamps. No section headers with ###. No bullet lists for the main body.
+- Bullet lists (using -) are only allowed for ingredient breakdowns or benefit lists within a section.
+
+The result should look exactly like the examples: every sentence breathes, every line has space after it.`
+      : `Create a marketing script for a supplement brand with the following details:
 
 Brand Name: ${brandName}
 Benefit: ${benefit}
@@ -86,7 +159,7 @@ Generate a complete script that is approximately ${targetDurationMinutes.toFixed
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${apiKey} `,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
