@@ -27,9 +27,10 @@ Rules:
 - Keep the prompt to 3-5 sentences maximum — dense and specific
 - Do NOT include any explanation or commentary, just the prompt itself
 - CRITICAL: The image MUST NOT contain any text, letters, words, or typography whatsoever.
-- ABSOLUTELY NO CAPTIONS, SUBTITLES, OR GRAPHIC DESIGN ELEMENTS. Unless the user explicitly asks for "text" or a "caption", ensure the output is purely visual.
-- The output must be purely visual without any graphic design elements like text overlays.
-- DO NOT generate any mock-ups with placeholder text, logos with names, or labels on bottles/packaging. If a product is mentioned, show the product without any legible brand name or text on its packaging.`
+- ABSOLUTELY NO CAPTIONS, SUBTITLES, OR GRAPHIC DESIGN ELEMENTS. 
+- Unless the user explicitly asks for "text" or a specific "caption" or "word" to be written, ensure the output is 100% purely visual without a single character of text.
+- DO NOT generate any mock-ups with placeholder text, logos with names, or labels on bottles/packaging. Show products as unbranded or with generic, text-free shapes.
+- If the user has NOT provided specific text to include, the generated prompt MUST NOT include any words like "typography", "text", "label", "caption", "lettering", or "logo".`
 
     const userMessage = `Expand this into a detailed image generation prompt:
 "${userPrompt}"
