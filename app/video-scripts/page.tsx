@@ -912,6 +912,10 @@ export default function Home() {
           </div>
         )}
       </div>
+      {/* Watermark */}
+      <div className={styles.watermark}>
+        confidential tool by 24labs
+      </div>
     </div>
   )
 }

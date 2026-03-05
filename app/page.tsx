@@ -33,7 +33,6 @@ const IMAGE_STYLES = [
     'Medical / Clinical',
     'Nature & Earthy',
     'Luxury Editorial',
-    'Native / Ugly (High Conversion)',
 ]
 
 export default function StaticAdsPage() {
@@ -377,13 +376,6 @@ export default function StaticAdsPage() {
                     >
                         <span className={styles.tabIcon}>💬</span>
                         Chat
-                    </button>
-                    <button
-                        className={`${styles.tabBtn} ${activeTab === 'ripper' ? styles.tabBtnActive : ''}`}
-                        onClick={() => setActiveTab('ripper')}
-                    >
-                        <span className={styles.tabIcon}>📸</span>
-                        Static Ripper
                     </button>
                 </div>
 
@@ -885,97 +877,6 @@ export default function StaticAdsPage() {
                     </div>
                 )}
 
-                {/* ── Static Ripper Tab ── */}
-                {activeTab === 'ripper' && (
-                    <div className={styles.panelGrid}>
-                        {/* Left: Ripper controls */}
-                        <div className={styles.panel}>
-                            <div className={styles.panelHeader}>
-                                <span className={styles.panelIcon}>📸</span>
-                                <h2 className={styles.panelTitle}>Static Ad Ripper</h2>
-                                <span className={styles.geminiPill}>Vision Pro</span>
-                            </div>
-
-                            <div className={styles.fieldGroup}>
-                                <label className={styles.fieldLabel}>Upload Competitor Ad (Screenshot/Image)</label>
-                                <div
-                                    className={styles.dropZone}
-                                    onClick={() => document.getElementById('static-ripper-upload')?.click()}
-                                    style={{
-                                        height: '160px',
-                                        border: '2px dashed rgba(255,255,255,0.1)',
-                                        borderRadius: '12px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        cursor: 'pointer',
-                                        background: 'rgba(255,255,255,0.02)',
-                                        transition: 'all 0.2s ease',
-                                        position: 'relative',
-                                        overflow: 'hidden'
-                                    }}
-                                >
-                                    {referenceImage ? (
-                                        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={referenceImage} alt="Reference" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.9rem' }}>
-                                                Click to Change
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <span style={{ fontSize: '2.5rem', marginBottom: '10px' }}>🖼️</span>
-                                            <p style={{ margin: 0, fontWeight: 600, color: '#e0e0e0' }}>Upload Static Ad Screenshot</p>
-                                        </>
-                                    )}
-                                    <input
-                                        id="static-ripper-upload"
-                                        type="file"
-                                        hidden
-                                        accept="image/*"
-                                        onChange={handleReferenceImageUpload}
-                                    />
-                                </div>
-                            </div>
-
-                            <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '20px' }}>
-                                This will analyze the competitor&apos;s hooks, layout, and visual psychology to recreate it for <strong style={{ color: '#ff6b35' }}>Resilia</strong>.
-                            </p>
-
-                            <button
-                                className={styles.btnPrimary}
-                                style={{ width: '100%' }}
-                                onClick={handleGenerateImage}
-                                disabled={!referenceImage || loadingImage}
-                            >
-                                {loadingImage ? (
-                                    <><span className={styles.spinner} /> Ripping Static Ad...</>
-                                ) : '⚡ Rip & Generate for Resilia'}
-                            </button>
-                        </div>
-
-                        {/* Right: Info */}
-                        <div className={styles.panel}>
-                            <div className={styles.panelHeader}>
-                                <span className={styles.panelIcon}>💡</span>
-                                <h2 className={styles.panelTitle}>Static Ripper Mode</h2>
-                            </div>
-                            <div style={{ color: '#888', fontSize: '0.9rem', lineHeight: '1.6' }}>
-                                <p style={{ marginBottom: '15px' }}>
-                                    <strong style={{ color: '#e0e0e0' }}>1. Upload a winner:</strong> Find a static FB/IG ad that is already performing well for a competitor.
-                                </p>
-                                <p style={{ marginBottom: '15px' }}>
-                                    <strong style={{ color: '#e0e0e0' }}>2. Vision Analysis:</strong> Gemini will &quot;see&quot; the ad, extract the text, analyze the color palette, and identify the core emotional trigger.
-                                </p>
-                                <p style={{ marginBottom: '15px' }}>
-                                    <strong style={{ color: '#e0e0e0' }}>3. Model for Resilia:</strong> It then generates a new image and copy using the same psychological structure but tailored for Resilia&apos;s specific USP.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {/* History strip */}
                 {imageHistory.length > 0 && (activeTab === 'image' || activeTab === 'ripper') && (
@@ -1017,6 +918,10 @@ export default function StaticAdsPage() {
                     </div>
                 </div>
             )}
+            {/* Watermark */}
+            <div className={styles.watermark}>
+                confidential tool by 24labs
+            </div>
         </div>
     )
 }

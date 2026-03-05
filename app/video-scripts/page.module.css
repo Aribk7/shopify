@@ -1207,3 +1207,15 @@
   align-items: center;
   animation: fadeIn 0.3s ease-out;
 }
+.watermark {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.3);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  z-index: 1000;
+  text-transform: uppercase;
+}

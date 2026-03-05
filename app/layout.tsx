@@ -4,6 +4,9 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Script Writer - AI-Powered Script Generator',
   description: 'Generate scripts using xAI API',
+  icons: {
+    icon: '/favicon.png',
+  },
 }
 
 import { BrandProvider } from '@/context/BrandContext'
