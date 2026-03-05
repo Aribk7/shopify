@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
       brandName, benefit, angle,
       videoLength, aggressiveness,
       isStatic, brandContext,
-      isResiliaMode
+      isResiliaMode, referenceTranscription
     } = await request.json()
 
     if (!brandName) {
@@ -125,6 +125,10 @@ When generating, match the style, tone, structure, and formatting of the referen
     }
 
     // Build user prompt — different for static LFS vs video scripts
+    const transcriptionContext = referenceTranscription?.trim()
+      ? `\n\n=== REFERENCE TRANSCRIPTION ===\nYou have been provided with a transcription of a successful video script. Use its structure, pacing, hooks, and transitions as a model for the new script, but adapt it fully for the brand and product specified below:\n\n${referenceTranscription}\n\n===============================\n`
+      : ''
+
     const userPrompt = isStatic
       ? `Your job is to write a new Long Form Static (LFS) ad about this product:
 
@@ -156,6 +160,8 @@ Aggressiveness Level: ${aggressivenessLevel}/10 - The script should be ${aggress
 
 Generate a complete script that is approximately ${targetDurationMinutes.toFixed(1)} minutes long when spoken. Include timestamps for every line in the format "00:00-00:04: content". The final timestamp should be close to ${Math.floor(targetDurationSeconds / 60)}:${String(Math.floor(targetDurationSeconds % 60)).padStart(2, '0')}. Make it compelling, authentic, and match the style of the reference scripts. Adjust the tone and urgency based on the aggressiveness level specified.`
 
+    const userPromptWithContext = transcriptionContext + userPrompt
+
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -171,7 +177,7 @@ Generate a complete script that is approximately ${targetDurationMinutes.toFixed
           },
           {
             role: 'user',
-            content: userPrompt,
+            content: userPromptWithContext,
           },
         ],
         temperature: 0.7,

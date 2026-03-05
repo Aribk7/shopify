@@ -11,11 +11,12 @@ async function expandPrompt(
     userPrompt: string,
     style: string,
     aspect: string,
-    apiKey: string
+    apiKey: string,
+    referenceImage?: string
 ): Promise<string> {
     const aspectDesc = ASPECT_MAP[aspect] || 'square format'
     const systemInstruction = `You are an expert AI image prompt engineer specializing in high-quality advertising creative for health and supplement brands.
-Your job is to take a simple image description and expand it into a richly detailed, professional image generation prompt that will produce stunning, photorealistic ad creative.
+Your job is to take a simple image description (and optionally a reference image) and expand it into a richly detailed, professional image generation prompt.
 
 Rules:
 - Be extremely specific about lighting, composition, colors, textures, and mood
@@ -26,15 +27,33 @@ Rules:
 - Keep the prompt to 3-5 sentences maximum — dense and specific
 - Do NOT include any explanation or commentary, just the prompt itself
 - CRITICAL: The image MUST NOT contain any text, letters, words, or typography whatsoever.
-- The output must be purely visual without any graphic design elements like text overlays.`
+- ABSOLUTELY NO CAPTIONS, SUBTITLES, OR GRAPHIC DESIGN ELEMENTS. Unless the user explicitly asks for "text" or a "caption", ensure the output is purely visual.
+- The output must be purely visual without any graphic design elements like text overlays.
+- DO NOT generate any mock-ups with placeholder text, logos with names, or labels on bottles/packaging. If a product is mentioned, show the product without any legible brand name or text on its packaging.`
 
     const userMessage = `Expand this into a detailed image generation prompt:
 "${userPrompt}"
 
 Style: ${style}
 Format: ${aspectDesc}
+${referenceImage ? 'Reference Image provided: Use the visual style and composition from the reference image.' : ''}
 
 Output only the expanded prompt, nothing else.`
+
+    const parts: any[] = [{ text: userMessage }]
+    if (referenceImage) {
+        // If we have a reference image, we can use it to inform the prompt expansion too
+        // Extract base64 and mime type
+        const match = referenceImage.match(/^data:(image\/[a-zA-Z]*);base64,(.*)$/)
+        if (match) {
+            parts.push({
+                inlineData: {
+                    mimeType: match[1],
+                    data: match[2]
+                }
+            })
+        }
+    }
 
     const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
@@ -43,7 +62,7 @@ Output only the expanded prompt, nothing else.`
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 systemInstruction: { parts: [{ text: systemInstruction }] },
-                contents: [{ parts: [{ text: userMessage }] }],
+                contents: [{ parts }],
                 generationConfig: { temperature: 0.7, maxOutputTokens: 300 },
             }),
         }
@@ -58,7 +77,6 @@ Output only the expanded prompt, nothing else.`
     let expanded = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
 
     // Ensure aspect ratio instruction is appended to the final prompt
-    // Gemini 3 Pro image generation requires this in the prompt text
     if (expanded) {
         expanded = `${expanded} Aspect ratio: ${aspect}.`
     } else {
@@ -70,7 +88,7 @@ Output only the expanded prompt, nothing else.`
 
 export async function POST(request: NextRequest) {
     try {
-        const { prompt, style = 'Photorealistic', aspectRatio = '1:1' } = await request.json()
+        const { prompt, style = 'Photorealistic', aspectRatio = '1:1', referenceImage } = await request.json()
 
         if (!prompt || !prompt.trim()) {
             return NextResponse.json({ error: 'Prompt is required' }, { status: 400 })
@@ -82,19 +100,32 @@ export async function POST(request: NextRequest) {
         }
 
         // Step 1: Expand the user prompt into a detailed image generation brief
-        const expandedPrompt = await expandPrompt(prompt.trim(), style, aspectRatio, apiKey)
+        const expandedPrompt = await expandPrompt(prompt.trim(), style, aspectRatio, apiKey, referenceImage)
         console.log('Expanded prompt:', expandedPrompt)
 
         // Step 2: Generate the image with the amplified prompt
+        // We include the reference image in the main generation call as well if available
+        const generationParts: any[] = [{ text: expandedPrompt }]
+        if (referenceImage) {
+            const match = referenceImage.match(/^data:(image\/[a-zA-Z]*);base64,(.*)$/)
+            if (match) {
+                generationParts.push({
+                    inlineData: {
+                        mimeType: match[1],
+                        data: match[2]
+                    }
+                })
+            }
+        }
+
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${apiKey}`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: expandedPrompt }] }],
+                    contents: [{ parts: generationParts }],
                     generationConfig: {
-                        //                        responseModalities: ['IMAGE'], // Optionally restrict
                         temperature: 1,
                     },
                 }),

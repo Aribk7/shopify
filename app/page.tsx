@@ -5,7 +5,7 @@ import styles from './page.module.css'
 import { useBrand } from '@/context/BrandContext'
 import BrandUploader from '@/components/BrandUploader'
 
-type Tab = 'lfs' | 'image' | 'angles' | 'chat'
+type Tab = 'lfs' | 'image' | 'angles' | 'chat' | 'ripper'
 
 interface Message {
     role: 'user' | 'assistant'
@@ -33,6 +33,7 @@ const IMAGE_STYLES = [
     'Medical / Clinical',
     'Nature & Earthy',
     'Luxury Editorial',
+    'Native / Ugly (High Conversion)',
 ]
 
 export default function StaticAdsPage() {
@@ -86,11 +87,22 @@ export default function StaticAdsPage() {
     const [generatedImage, setGeneratedImage] = useState<string | null>(null)
     const [imageMime, setImageMime] = useState('image/png')
     const [expandedPrompt, setExpandedPrompt] = useState<string | null>(null)
+    const [showViewer, setShowViewer] = useState(false)
     const [loadingImage, setLoadingImage] = useState(false)
     const [imageError, setImageError] = useState('')
-    const [imageHistory, setImageHistory] = useState<Array<{ src: string; prompt: string; mime: string }>>([]
-    )
+    const [imageHistory, setImageHistory] = useState<Array<{ src: string; prompt: string; mime: string }>>([])
+    const [referenceImage, setReferenceImage] = useState<string | null>(null)
     const imageRef = useRef<HTMLImageElement>(null)
+
+    const handleReferenceImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+        const reader = new FileReader()
+        reader.onload = (event) => {
+            setReferenceImage(event.target?.result as string)
+        }
+        reader.readAsDataURL(file)
+    }
 
     /* ── LFS Handlers ── */
     const handleGenerateLFS = async () => {
@@ -264,6 +276,7 @@ export default function StaticAdsPage() {
                     prompt: imagePrompt.trim(),
                     style: imageStyle,
                     aspectRatio: imageAspect,
+                    referenceImage: activeTab === 'ripper' ? referenceImage : undefined
                 }),
             })
             const data = await res.json()
@@ -364,6 +377,13 @@ export default function StaticAdsPage() {
                     >
                         <span className={styles.tabIcon}>💬</span>
                         Chat
+                    </button>
+                    <button
+                        className={`${styles.tabBtn} ${activeTab === 'ripper' ? styles.tabBtnActive : ''}`}
+                        onClick={() => setActiveTab('ripper')}
+                    >
+                        <span className={styles.tabIcon}>📸</span>
+                        Static Ripper
                     </button>
                 </div>
 
@@ -553,6 +573,44 @@ export default function StaticAdsPage() {
                             </div>
 
                             <div className={styles.fieldGroup}>
+                                <label className={styles.fieldLabel}>Reference Image (Optional Image-to-Image)</label>
+                                <div
+                                    className={`${styles.dropZone} ${referenceImage ? styles.dropZoneHasFile : ''}`}
+                                    onClick={() => document.getElementById('image-upload')?.click()}
+                                    style={{ height: '120px', position: 'relative', overflow: 'hidden', border: '2px dashed rgba(255,255,255,0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                >
+                                    {referenceImage ? (
+                                        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={referenceImage} alt="Reference" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.8rem', opacity: 0, transition: 'opacity 0.2s' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0'}>Click to change reference</div>
+                                        </div>
+                                    ) : (
+                                        <div style={{ textAlign: 'center' }}>
+                                            <span style={{ fontSize: '1.5rem' }}>📁</span>
+                                            <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#666' }}>Upload a reference image for image-to-image mode (Ripper)</p>
+                                        </div>
+                                    )}
+                                    <input
+                                        type="file"
+                                        id="image-upload"
+                                        hidden
+                                        accept="image/*"
+                                        onChange={handleReferenceImageUpload}
+                                    />
+                                </div>
+                                {referenceImage && (
+                                    <button
+                                        className={styles.hintLink}
+                                        style={{ marginTop: 8 }}
+                                        onClick={(e) => { e.stopPropagation(); setReferenceImage(null); }}
+                                    >
+                                        Remove reference
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className={styles.fieldGroup}>
                                 <label className={styles.fieldLabel}>Creative Style</label>
                                 <div className={styles.styleGrid}>
                                     {IMAGE_STYLES.map(s => (
@@ -594,57 +652,37 @@ export default function StaticAdsPage() {
                                 disabled={loadingImage || !imagePrompt.trim()}
                             >
                                 {loadingImage ? (
-                                    <><span className={styles.spinner} /> Generating with Gemini...</>
-                                ) : '✨ Generate Image'}
+                                    <><span className={styles.spinner} /> {referenceImage ? 'Ripping Image...' : 'Generating...'}</>
+                                ) : referenceImage ? '⚡ Generate Ripped Image' : '✨ Generate Image'}
                             </button>
-
-                            {/* History strip */}
-                            {imageHistory.length > 0 && (
-                                <div className={styles.historySection}>
-                                    <label className={styles.fieldLabel}>Recent Generations</label>
-                                    <div className={styles.historyStrip}>
-                                        {imageHistory.map((item, idx) => (
-                                            <button
-                                                key={idx}
-                                                className={styles.historyThumb}
-                                                onClick={() => {
-                                                    setGeneratedImage(item.src)
-                                                    setImagePrompt(item.prompt)
-                                                    setImageMime(item.mime)
-                                                }}
-                                                title={item.prompt}
-                                            >
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img src={item.src} alt={item.prompt} />
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
                         {/* Right: image output */}
                         <div className={styles.panel}>
                             <div className={styles.panelHeader}>
                                 <span className={styles.panelIcon}>🖼️</span>
-                                <h2 className={styles.panelTitle}>Output</h2>
-                                {generatedImage && (
-                                    <button className={styles.copyBtn} onClick={handleDownloadImage}>
-                                        ⬇ Download
-                                    </button>
-                                )}
+                                <h2 className={styles.panelTitle}>Image Result</h2>
                             </div>
 
                             {loadingImage ? (
                                 <div className={styles.loadingState}>
                                     <div className={styles.geminiOrb} />
                                     <p className={styles.loadingText}>Gemini is creating your image...</p>
-                                    <p className={styles.loadingSubtext}>Using Gemini 2.0 Flash image generation</p>
+                                    <p className={styles.loadingSubtext}>Using Gemini 2.0 Flash</p>
                                 </div>
                             ) : generatedImage ? (
                                 <div className={styles.imageOutput}>
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img ref={imageRef} src={generatedImage} alt="Generated" className={styles.generatedImage} />
+                                    <div className={styles.imageContainer}>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img ref={imageRef} src={generatedImage} alt="Generated" className={styles.generatedImage} />
+                                        <button
+                                            className={styles.viewerTrigger}
+                                            onClick={() => setShowViewer(true)}
+                                            title="View Full Size"
+                                        >
+                                            🔍
+                                        </button>
+                                    </div>
                                     {expandedPrompt ? (
                                         <details className={styles.expandedPromptDetails}>
                                             <summary className={styles.expandedPromptSummary}>✨ AI-expanded prompt</summary>
@@ -665,29 +703,15 @@ export default function StaticAdsPage() {
                             ) : (
                                 <div className={styles.emptyState}>
                                     <div className={styles.emptyGeminiIcon}>✨</div>
-                                    <p className={styles.emptyTitle}>No image generated yet</p>
-                                    <p className={styles.emptyText}>
-                                        Write a prompt, choose a style and aspect ratio, then hit Generate. Powered by Gemini 2.0 Flash.
-                                    </p>
-                                    <div className={styles.geminiInfoCards}>
-                                        <div className={styles.geminiCard}>
-                                            <span>🧠</span>
-                                            <span>Gemini 2.0 Flash</span>
-                                        </div>
-                                        <div className={styles.geminiCard}>
-                                            <span>🎨</span>
-                                            <span>8 Style Presets</span>
-                                        </div>
-                                        <div className={styles.geminiCard}>
-                                            <span>📐</span>
-                                            <span>4 Aspect Ratios</span>
-                                        </div>
-                                    </div>
+                                    <p className={styles.emptyTitle}>Enter a prompt</p>
+                                    <p className={styles.emptyText}>Gemini will expand your prompt and generate a high-quality advertising image.</p>
                                 </div>
                             )}
                         </div>
                     </div>
                 )}
+
+
 
                 {/* ── Angles Tab ── */}
                 {activeTab === 'angles' && (
@@ -808,6 +832,7 @@ export default function StaticAdsPage() {
                         </div>
                     </div>
                 )}
+
                 {activeTab === 'chat' && (
                     <div className={styles.panel} style={{ maxWidth: '900px', margin: '0 auto', height: '600px', display: 'flex', flexDirection: 'column' }}>
                         <div className={styles.panelHeader}>
@@ -859,7 +884,139 @@ export default function StaticAdsPage() {
                         </div>
                     </div>
                 )}
+
+                {/* ── Static Ripper Tab ── */}
+                {activeTab === 'ripper' && (
+                    <div className={styles.panelGrid}>
+                        {/* Left: Ripper controls */}
+                        <div className={styles.panel}>
+                            <div className={styles.panelHeader}>
+                                <span className={styles.panelIcon}>📸</span>
+                                <h2 className={styles.panelTitle}>Static Ad Ripper</h2>
+                                <span className={styles.geminiPill}>Vision Pro</span>
+                            </div>
+
+                            <div className={styles.fieldGroup}>
+                                <label className={styles.fieldLabel}>Upload Competitor Ad (Screenshot/Image)</label>
+                                <div
+                                    className={styles.dropZone}
+                                    onClick={() => document.getElementById('static-ripper-upload')?.click()}
+                                    style={{
+                                        height: '160px',
+                                        border: '2px dashed rgba(255,255,255,0.1)',
+                                        borderRadius: '12px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        background: 'rgba(255,255,255,0.02)',
+                                        transition: 'all 0.2s ease',
+                                        position: 'relative',
+                                        overflow: 'hidden'
+                                    }}
+                                >
+                                    {referenceImage ? (
+                                        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={referenceImage} alt="Reference" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.9rem' }}>
+                                                Click to Change
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <span style={{ fontSize: '2.5rem', marginBottom: '10px' }}>🖼️</span>
+                                            <p style={{ margin: 0, fontWeight: 600, color: '#e0e0e0' }}>Upload Static Ad Screenshot</p>
+                                        </>
+                                    )}
+                                    <input
+                                        id="static-ripper-upload"
+                                        type="file"
+                                        hidden
+                                        accept="image/*"
+                                        onChange={handleReferenceImageUpload}
+                                    />
+                                </div>
+                            </div>
+
+                            <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '20px' }}>
+                                This will analyze the competitor&apos;s hooks, layout, and visual psychology to recreate it for <strong style={{ color: '#ff6b35' }}>Resilia</strong>.
+                            </p>
+
+                            <button
+                                className={styles.btnPrimary}
+                                style={{ width: '100%' }}
+                                onClick={handleGenerateImage}
+                                disabled={!referenceImage || loadingImage}
+                            >
+                                {loadingImage ? (
+                                    <><span className={styles.spinner} /> Ripping Static Ad...</>
+                                ) : '⚡ Rip & Generate for Resilia'}
+                            </button>
+                        </div>
+
+                        {/* Right: Info */}
+                        <div className={styles.panel}>
+                            <div className={styles.panelHeader}>
+                                <span className={styles.panelIcon}>💡</span>
+                                <h2 className={styles.panelTitle}>Static Ripper Mode</h2>
+                            </div>
+                            <div style={{ color: '#888', fontSize: '0.9rem', lineHeight: '1.6' }}>
+                                <p style={{ marginBottom: '15px' }}>
+                                    <strong style={{ color: '#e0e0e0' }}>1. Upload a winner:</strong> Find a static FB/IG ad that is already performing well for a competitor.
+                                </p>
+                                <p style={{ marginBottom: '15px' }}>
+                                    <strong style={{ color: '#e0e0e0' }}>2. Vision Analysis:</strong> Gemini will &quot;see&quot; the ad, extract the text, analyze the color palette, and identify the core emotional trigger.
+                                </p>
+                                <p style={{ marginBottom: '15px' }}>
+                                    <strong style={{ color: '#e0e0e0' }}>3. Model for Resilia:</strong> It then generates a new image and copy using the same psychological structure but tailored for Resilia&apos;s specific USP.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* History strip */}
+                {imageHistory.length > 0 && (activeTab === 'image' || activeTab === 'ripper') && (
+                    <div className={styles.historySection}>
+                        <label className={styles.fieldLabel}>Recent Generations</label>
+                        <div className={styles.historyStrip}>
+                            {imageHistory.map((item, idx) => (
+                                <button
+                                    key={idx}
+                                    className={styles.historyThumb}
+                                    onClick={() => {
+                                        setGeneratedImage(item.src)
+                                        setImagePrompt(item.prompt)
+                                        setImageMime(item.mime)
+                                    }}
+                                    title={item.prompt}
+                                >
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={item.src} alt={item.prompt} />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
+
+            {/* Image Viewer Modal */}
+            {showViewer && generatedImage && (
+                <div className={styles.viewerOverlay} onClick={() => setShowViewer(false)}>
+                    <div className={styles.viewerContent} onClick={e => e.stopPropagation()}>
+                        <button className={styles.viewerClose} onClick={() => setShowViewer(false)}>✕</button>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={generatedImage} alt="Full size" className={styles.viewerImage} />
+                        <div className={styles.viewerActions}>
+                            <button className={styles.btnPrimary} onClick={handleDownloadImage}>
+                                ⬇ Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

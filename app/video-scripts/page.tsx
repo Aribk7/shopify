@@ -6,7 +6,7 @@ import { useBrand } from '@/context/BrandContext'
 import BrandUploader from '@/components/BrandUploader'
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'generate' | 'upload' | 'angles'>('generate')
+  const [activeTab, setActiveTab] = useState<'generate' | 'upload' | 'angles' | 'ripper'>('generate')
   const [brandName, setBrandName] = useState('')
   const [productName, setProductName] = useState('')
   const [benefit, setBenefit] = useState('')
@@ -16,6 +16,11 @@ export default function Home() {
   const [uploadedScript, setUploadedScript] = useState('')
   const [script, setScript] = useState('')
   const [angles, setAngles] = useState<Array<{ angle: string, likelihood: number }>>([])
+
+  // Transcription / Ripper state
+  const [transcription, setTranscription] = useState('')
+  const [transcribing, setTranscribing] = useState(false)
+
   const [loading, setLoading] = useState(false)
   const [loadingAngles, setLoadingAngles] = useState(false)
   const [angleStatus, setAngleStatus] = useState<string>('')
@@ -127,6 +132,90 @@ export default function Home() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
       console.error('Error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleTranscribe = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setTranscribing(true)
+    setError('')
+    setTranscription('')
+
+    try {
+      const reader = new FileReader()
+      reader.onload = async (event) => {
+        const base64 = (event.target?.result as string).split(',')[1]
+
+        try {
+          const response = await fetch('/api/transcribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              audioBase64: base64,
+              mimeType: file.type
+            })
+          })
+
+          const data = await response.json()
+          if (!response.ok) throw new Error(data.error || 'Transcription failed')
+
+          setTranscription(data.transcription)
+        } catch (innerErr) {
+          setError(innerErr instanceof Error ? innerErr.message : 'Transcription failed')
+        } finally {
+          setTranscribing(false)
+        }
+      }
+      reader.readAsDataURL(file)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred during transcription')
+      setTranscribing(false)
+    }
+  }
+
+  const handleRipFromTranscription = async () => {
+    if (!transcription.trim()) {
+      setError('Need a transcription to rip from')
+      return
+    }
+
+    if (!brandName.trim()) {
+      setError('Please enter a brand name')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+    setScript('')
+
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          brandName,
+          benefit: benefit || 'Extracted from transcription',
+          angle: angle || 'Style match from transcription',
+          videoLength,
+          aggressiveness,
+          brandContext,
+          isResiliaMode,
+          referenceTranscription: transcription
+        }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Generation failed')
+      setScript(data.script)
+      setActiveTab('generate') // Switch to output view
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setLoading(false)
     }
@@ -313,6 +402,14 @@ export default function Home() {
           >
             <span className={styles.tabIcon}>✍️</span>
             Generate
+          </button>
+          <button
+            className={`${styles.tabBtn} ${activeTab === 'ripper' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('ripper')}
+          >
+            <span className={styles.tabIcon}>🎙️</span>
+            Video Ripper
+            <span className={styles.tabBadge}>New</span>
           </button>
           <button
             className={`${styles.tabBtn} ${activeTab === 'upload' ? styles.tabBtnActive : ''}`}
@@ -703,6 +800,114 @@ export default function Home() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+        {activeTab === 'ripper' && (
+          <div className={styles.panelGrid}>
+            {/* Left: Ripper controls */}
+            <div className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <span className={styles.panelIcon}>🎙️</span>
+                <h2 className={styles.panelTitle}>Video Ripper (Audio-to-Script)</h2>
+                <span className={styles.geminiPill}>Gemini 2.0</span>
+              </div>
+
+              <div className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>Upload Audio (MP3/M4A/WAV)</label>
+                <div
+                  className={styles.dropZone}
+                  onClick={() => document.getElementById('audio-upload')?.click()}
+                  style={{
+                    height: '160px',
+                    border: '2px dashed rgba(255,255,255,0.1)',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    background: 'rgba(255,255,255,0.02)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <span style={{ fontSize: '2.5rem', marginBottom: '10px' }}>📁</span>
+                  <p style={{ margin: 0, fontWeight: 600, color: '#e0e0e0' }}>Click to upload audio</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#666' }}>Max file size: 20MB</p>
+                  <input
+                    id="audio-upload"
+                    type="file"
+                    hidden
+                    accept="audio/*"
+                    onChange={handleTranscribe}
+                  />
+                </div>
+              </div>
+
+              {transcribing && (
+                <div className={styles.statusBox}>
+                  Transcribing audio with Gemini...
+                </div>
+              )}
+
+              <div className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>Transcription Result</label>
+                <textarea
+                  className={styles.textarea}
+                  placeholder="Transcription will appear here..."
+                  value={transcription}
+                  onChange={e => setTranscription(e.target.value)}
+                  rows={8}
+                  disabled={transcribing}
+                />
+              </div>
+
+              {error && <div className={styles.errorBox}>{error}</div>}
+
+              <button
+                className={styles.btnPrimary}
+                style={{ width: '100%', marginTop: 10 }}
+                onClick={handleRipFromTranscription}
+                disabled={!transcription.trim() || loading || transcribing}
+              >
+                {loading ? (
+                  <><span className={styles.spinner} /> Generating Resilia Script...</>
+                ) : '🔥 Rip & Generate Resilia Script'}
+              </button>
+            </div>
+
+            {/* Right: Info / Context */}
+            <div className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <span className={styles.panelIcon}>💡</span>
+                <h2 className={styles.panelTitle}>How it works</h2>
+              </div>
+
+              <div style={{ color: '#888', fontSize: '0.9rem', lineHeight: '1.6' }}>
+                <p style={{ marginBottom: '15px' }}>
+                  <strong style={{ color: '#e0e0e0' }}>1. Upload Reference:</strong> Upload an MP3 of a successful competitor script or a video you want to model.
+                </p>
+                <p style={{ marginBottom: '15px' }}>
+                  <strong style={{ color: '#e0e0e0' }}>2. AI Transcription:</strong> Gemini 2.0 Flash will transcribe the audio perfectly, capturing the hooks, transitions, and pacing.
+                </p>
+                <p style={{ marginBottom: '15px' }}>
+                  <strong style={{ color: '#e0e0e0' }}>3. Rip & Model:</strong> The engine will then use that transcription as a stylistic and structural skeleton to build a 100% new, original script for <strong style={{ color: '#ff6b35' }}>Resilia</strong>.
+                </p>
+                <p>
+                  The final result matches the winner&apos;s psychology but uses your brand&apos;s unique benefits and claims.
+                </p>
+              </div>
+
+              {isResiliaMode && (
+                <div style={{ marginTop: 'auto', background: 'rgba(255,107,53,0.05)', border: '1px solid rgba(255,107,53,0.2)', padding: '16px', borderRadius: '12px' }}>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#ff6b35', fontWeight: 600 }}>
+                    ✨ Resilia Mode Active
+                  </p>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#888' }}>
+                    The generated script will automatically incorporate Resilia&apos;s core scientific claims and brand voice.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}

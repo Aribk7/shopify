@@ -3,7 +3,7 @@ import { loadScripts, formatScriptsForContext } from '@/lib/loadScripts'
 
 export async function POST(request: NextRequest) {
   try {
-    const { script, videoLength, aggressiveness, brandContext } = await request.json()
+    const { script, brandName, videoLength, aggressiveness, brandContext, isResiliaMode } = await request.json()
 
     if (!script) {
       return NextResponse.json(
@@ -30,6 +30,12 @@ export async function POST(request: NextRequest) {
       ? `\n\n=== BRAND CONTEXT ===\nPlease use the following information about the brand/product to inform your writing and ensure factual accuracy:\n\n${brandContext}\n\n=====================\n`
       : ''
 
+    const resiliaPersona = isResiliaMode
+      ? `\n\n=== RESILIA SPECIALIZED KNOWLEDGE ===
+You are currently in RESILIA MODE. You have deep technical knowledge of the Resilia brand, its specific health benefits, scientific backing, and customer journey. 
+Ensure every claim is backed by the Resilia brand context provided. Use the exact tone of voice found in the Resilia reference materials.\n`
+      : ''
+
     // Calculate target duration in seconds
     const targetDurationSeconds = (videoLength || 2.0) * 60
     const targetDurationMinutes = videoLength || 2.0
@@ -49,6 +55,7 @@ export async function POST(request: NextRequest) {
 
     // Build system prompt with reference scripts
     const systemPrompt = `You are a professional script writer specializing in supplement marketing scripts. You create variations of existing scripts while maintaining the same style and format.
+${resiliaPersona}
 ${brandContextSection}
 ${referenceScripts}
 
@@ -64,7 +71,7 @@ CRITICAL FORMATTING REQUIREMENTS:
 When creating variations, keep the core message and story but change the wording, examples, and specific details to create a fresh version.`
 
     // Build user prompt for variation
-    const userPrompt = `Create a variation of the following script. Keep the same core message, story structure, and brand information, but rewrite it with different wording, examples, and details.
+    const userPrompt = `Create a variation of the following script for the brand: ${brandName || 'specified brand'}. Keep the same core message, story structure, and brand information, but rewrite it with different wording, examples, and details.
 
 Original Script:
 ${script}
