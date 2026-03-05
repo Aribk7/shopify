@@ -73,6 +73,7 @@ export default function StaticAdsPage() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [copied, setCopied] = useState(false)
+    const [wordCount, setWordCount] = useState(1700)
 
     // Angles state
     const [angles, setAngles] = useState<Angle[]>([])
@@ -103,39 +104,7 @@ export default function StaticAdsPage() {
         reader.readAsDataURL(file)
     }
 
-    /* ── LFS Handlers ── */
-    const handleGenerateLFS = async () => {
-        if (!brandName.trim() || !benefit.trim() || !angle.trim()) {
-            setError('Brand name, benefit, and angle are required')
-            return
-        }
-        setLoading(true)
-        setError('')
-        setScript('')
-        try {
-            const res = await fetch('/api/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    brandName: brandName.trim(),
-                    benefit: benefit.trim(),
-                    angle: angle.trim(),
-                    brandContext: brandContext.trim(),
-                    isResiliaMode,
-                    videoLength: 0,
-                    aggressiveness,
-                    isStatic: true,
-                }),
-            })
-            const data = await res.json()
-            if (!res.ok) throw new Error(data.error || 'Failed to generate')
-            setScript(data.script)
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'An error occurred')
-        } finally {
-            setLoading(false)
-        }
-    }
+
 
     const handleCopyScript = async () => {
         await navigator.clipboard.writeText(script)
@@ -289,6 +258,40 @@ export default function StaticAdsPage() {
             setImageError(err instanceof Error ? err.message : 'An error occurred')
         } finally {
             setLoadingImage(false)
+        }
+    }
+
+    const handleGenerateLFS = async () => {
+        if (!brandName.trim() || !productName.trim() || !benefit.trim()) {
+            setError('All fields are required')
+            return
+        }
+        setLoading(true)
+        setScript('')
+        setError('')
+        try {
+            const res = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    brandName: brandName.trim(),
+                    benefit: benefit.trim(),
+                    angle: angle.trim(),
+                    aggressiveness,
+                    videoLength: '60s',
+                    brandContext,
+                    isStatic: true,
+                    isResiliaMode,
+                    wordCount
+                }),
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed to generate')
+            setScript(data.script || '')
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'An error occurred')
+        } finally {
+            setLoading(false)
         }
     }
 
@@ -468,6 +471,36 @@ export default function StaticAdsPage() {
                                 <div className={styles.sliderLabels}>
                                     <span>Subtle</span>
                                     <span>Max</span>
+                                </div>
+                            </div>
+
+                            <div className={styles.fieldGroup}>
+                                <div className={styles.sliderHeader}>
+                                    <label className={styles.fieldLabel}>Target Word Count</label>
+                                    <span className={styles.sliderValue}>
+                                        {wordCount} words
+                                    </span>
+                                </div>
+                                <div className={styles.sliderTrack}>
+                                    <input
+                                        type="range"
+                                        min={300}
+                                        max={5000}
+                                        step={100}
+                                        value={wordCount}
+                                        onChange={e => setWordCount(parseInt(e.target.value))}
+                                        className={styles.slider}
+                                        disabled={loading}
+                                    />
+                                    <div className={styles.sliderFill} style={{
+                                        width: `${(wordCount - 300) / (5000 - 300) * 100}%`,
+                                        background: '#ff6b35',
+                                    }} />
+                                </div>
+                                <div className={styles.sliderLabels}>
+                                    <span>300 (Short)</span>
+                                    <span>1700 (Avg)</span>
+                                    <span>5k (Mega)</span>
                                 </div>
                             </div>
 

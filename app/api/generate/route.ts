@@ -9,7 +9,8 @@ export async function POST(request: NextRequest) {
       brandName, benefit, angle,
       videoLength, aggressiveness,
       isStatic, brandContext,
-      isResiliaMode, referenceTranscription
+      isResiliaMode, referenceTranscription,
+      wordCount
     } = await request.json()
 
     if (!brandName) {
@@ -130,7 +131,9 @@ When generating, match the style, tone, structure, and formatting of the referen
       : ''
 
     const userPrompt = isStatic
-      ? `Your job is to write a new Long Form Static (LFS) ad about this product:
+      ? `Your job is to write a new Long Form Static (LFS) ad about this product.
+
+TARGET LENGTH: Approximately ${wordCount || 1700} words. This is a DEEP DIVE narrative. Ensure you provide enough detail, stories, and context to reach this target length while maintaining engagement.
 
 Brand: ${brandName}
 Product/Benefit: ${benefit}
