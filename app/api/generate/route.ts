@@ -142,17 +142,19 @@ Aggressiveness: ${aggressivenessLevel}/10 — tone should be ${aggressivenessDes
 
 The examples provided above are real, winning LFS ads. Study their structure, voice, pacing, and persuasion style — then write a brand new LFS for this product in the EXACT SAME FORMAT:
 
+
 FORMAT RULES (follow precisely):
-- EVERY single line — even one-sentence lines — must be followed by a blank line
-- Each line is typically 1 sentence. Never more than 2 sentences on the same line.
-- Put a blank line after EVERY line. The entire document is double-spaced, line by line.
+- LEAN HEAVILY on the RAG snippets and reference materials for the structure, vocabulary, and LENGTH of each line.
+- Do NOT output short or thin lines. Each line must be as deep and detailed as the lines found in the reference material.
+- EVERY single line must be followed by a blank line. The entire document is double-spaced, line by line.
+- You may write 2-4 sentences per line to ensure each line is rich with context, as long as it matches the style of the successful examples.
 - Use **bold** around the product name and key ingredient names
 - Use --- on its own line between major sections
 - End with 👉 [CTA link], then a blank line, then ---
 - No timestamps. No section headers with ###. No bullet lists for the main body.
 - Bullet lists (using -) are only allowed for ingredient breakdowns or benefit lists within a section.
 
-The result should look exactly like the examples: every sentence breathes, every line has space after it.`
+The result should look exactly like the examples: dense, highly persuasive sentences where every line breathes but is packed with meaning and detail.`
       : `Create a marketing script for a supplement brand with the following details:
 
 Brand Name: ${brandName}
