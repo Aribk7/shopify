@@ -84,3 +84,4 @@ The API key is stored in `.env.local` which is gitignored. Never commit your API
 - TypeScript
 - xAI API
 
+Built by the team behind [Revana](https://revana.si).
